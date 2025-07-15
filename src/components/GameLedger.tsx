@@ -13,6 +13,7 @@ interface Player {
 
 export default function GameLedger() {
   const [players, setPlayers] = useState<Player[]>([])
+  const [totalMoneyInPlay, setTotalMoneyInPlay] = useState(0)
   const [newPlayerName, setNewPlayerName] = useState('')
   const [buyInAmount, setBuyInAmount] = useState('')
   const [selectedPlayerId, setSelectedPlayerId] = useState('')
@@ -22,6 +23,16 @@ export default function GameLedger() {
 
   const addPlayer = () => {
     if (!newPlayerName.trim()) return
+    
+    // Check if name already exists (including inactive players)
+    const nameExists = players.some(player => 
+      player.name.toLowerCase() === newPlayerName.trim().toLowerCase()
+    )
+    
+    if (nameExists) {
+      alert('A player with this name already exists!')
+      return
+    }
     
     const newPlayer: Player = {
       id: Date.now().toString(),
@@ -38,6 +49,9 @@ export default function GameLedger() {
   const addBuyIn = () => {
     const amount = parseFloat(buyInAmount)
     if (!selectedPlayerId || !amount || amount <= 0) return
+
+    // Add to total pot
+    setTotalMoneyInPlay(prev => prev + amount)
 
     setPlayers(players.map(player => {
       if (player.id === selectedPlayerId) {
@@ -94,8 +108,8 @@ export default function GameLedger() {
     const cashingOutPlayer = players.find(p => p.id === cashoutPlayerId)
     if (!cashingOutPlayer) return
 
-    // Calculate how much to reduce from each player proportionally
-    const totalBuyIns = players.reduce((sum, player) => sum + player.totalBuyIn, 0)
+    // Subtract from total pot
+    setTotalMoneyInPlay(prev => prev - amount)
     
     setPlayers(players.map(player => {
       if (player.id === cashoutPlayerId) {
@@ -103,86 +117,69 @@ export default function GameLedger() {
         return { 
           ...player, 
           isActive: false,
-          // Add a cashout record (optional - for tracking)
           cashout: amount
         }
-      } else if (player.totalBuyIn > 0) {
-        // Reduce each remaining player's total proportionally
-        const proportion = player.totalBuyIn / totalBuyIns
-        const reduction = amount * proportion
-        const newTotal = Math.max(0, player.totalBuyIn - reduction)
-        
-        // Scale down their buy-ins proportionally
-        const scaleFactor = newTotal / player.totalBuyIn
-        return {
-          ...player,
-          totalBuyIn: newTotal,
-          buyIns: player.buyIns.map(buyIn => buyIn * scaleFactor)
-        }
       }
+      // All other players remain unchanged
       return player
     }))
 
     closeCashoutModal()
   }
 
-  const totalMoneyInPlay = players.reduce((sum, player) => sum + player.totalBuyIn, 0)
   const activePlayers = players.filter(player => player.isActive)
-  const inactivePlayers = players.filter(player => !player.isActive)
+  const cashedOutPlayers = players.filter(player => !player.isActive && player.cashout !== undefined)
+  
+  // Reset pot to 0 if no active players
+  if (activePlayers.length === 0 && totalMoneyInPlay > 0) {
+    setTotalMoneyInPlay(0)
+  }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Game Stats Bar */}
-      <div className="bg-slate-900 text-white p-4 rounded-t-lg flex justify-between items-center">
-        <div className="flex space-x-8">
-          <div>
-            <span className="text-slate-400 text-sm">Pot Size</span>
-            <div className="text-2xl font-bold text-green-400">${totalMoneyInPlay.toFixed(2)}</div>
-          </div>
-          <div>
-            <span className="text-slate-400 text-sm">Players</span>
-            <div className="text-xl font-semibold text-white">{activePlayers.length}/{players.length}</div>
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-sm text-slate-400">Game Status</div>
-          <div className="text-green-400 font-semibold">{players.length > 0 ? 'Active' : 'Waiting'}</div>
+    <div className="max-w-2xl mx-auto p-4">
+      {/* Header */}
+      <div className="mb-8 text-center">
+        <h1 className="text-2xl font-light text-black mb-2">Poker Game</h1>
+        <div className="flex justify-center space-x-8 text-sm text-black">
+          <span>Pot: <strong>${totalMoneyInPlay.toFixed(2)}</strong></span>
+          <span>Players: <strong>{activePlayers.length}</strong></span>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white border-x border-gray-200 p-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1">
-            <input
-              type="text"
-              value={newPlayerName}
-              onChange={(e) => setNewPlayerName(e.target.value)}
-              placeholder="Player name"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
-              onKeyPress={(e) => e.key === 'Enter' && addPlayer()}
-            />
-          </div>
-          <button 
+      {/* Add Player */}
+      <div className="mb-6">
+        <div className="flex space-x-2">
+          <input
+            type="text"
+            value={newPlayerName}
+            onChange={(e) => setNewPlayerName(e.target.value)}
+            placeholder="Player name"
+            className="flex-1 px-3 py-2 text-black border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-500"
+            onKeyPress={(e) => e.key === 'Enter' && addPlayer()}
+          />
+          <button
             onClick={addPlayer}
             disabled={!newPlayerName.trim()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+            className="px-4 py-2 bg-black text-white rounded text-sm hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
-            Add Player
+            Add
           </button>
         </div>
-        
-        {players.length > 0 && (
-          <div className="flex flex-col sm:flex-row gap-3 mt-3 pt-3 border-t border-gray-100">
+      </div>
+
+      {/* Add Buy-in */}
+      {activePlayers.length > 0 && (
+        <div className="mb-6">
+          <div className="flex space-x-2">
             <select
               value={selectedPlayerId}
               onChange={(e) => setSelectedPlayerId(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+              className="flex-1 px-3 py-2 border text-black border-gray-300 rounded text-sm focus:outline-none focus:border-gray-500"
             >
-              <option value="">Choose player...</option>
-              {players.map(player => (
+              <option value="">Select player</option>
+              {activePlayers.map((player) => (
                 <option key={player.id} value={player.id}>
-                  {player.name} {!player.isActive && '(Out)'}
+                  {player.name}
                 </option>
               ))}
             </select>
@@ -190,156 +187,118 @@ export default function GameLedger() {
               type="number"
               value={buyInAmount}
               onChange={(e) => setBuyInAmount(e.target.value)}
-              placeholder="$0.00"
+              placeholder="$0"
               min="0"
               step="0.01"
-              className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+              className="w-20 px-3 py-2 text-black border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-500"
               onKeyPress={(e) => e.key === 'Enter' && addBuyIn()}
             />
             <button
               onClick={addBuyIn}
               disabled={!selectedPlayerId || !buyInAmount || parseFloat(buyInAmount) <= 0}
-              className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+              className="px-4 py-2 bg-black text-white rounded text-sm hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
-              Buy In
+              Buy-in
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Players List */}
-      <div className="bg-white border border-gray-200 rounded-b-lg">
-        {players.length === 0 ? (
-          <div className="text-center py-16 text-black">
-            <div className="text-6xl mb-4">🃏</div>
-            <h3 className="text-lg font-medium mb-2 text-black">Ready to start?</h3>
-            <p className="text-black">Add players to begin tracking the game</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {/* Active Players */}
-            {activePlayers.map((player, index) => (
-              <div key={player.id} className="p-4 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center font-semibold text-blue-700">
-                      {index + 1}
-                    </div>
+      {players.length === 0 ? (
+        <div className="text-center py-16 text-black">
+          <div className="text-6xl mb-4">🃏</div>
+          <h3 className="text-lg font-medium mb-2 text-black">Ready to start?</h3>
+          <p className="text-black">Add players to begin tracking the game</p>
+        </div>
+      ) : (
+        <div>
+          {/* Active Players */}
+          {activePlayers.length > 0 && (
+            <div className="mb-8 border border-gray-300 rounded p-4">
+              <h3 className="text-sm font-medium text-black mb-3 uppercase tracking-wide">Active Players</h3>
+              <div className="space-y-2">
+                {activePlayers.map((player) => (
+                  <div key={player.id} className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded border border-gray-300">
                     <div>
-                      <h4 className="font-semibold text-black">{player.name}</h4>
-                      <div className="text-sm text-black">
-                        {player.buyIns.length} buy-in{player.buyIns.length !== 1 ? 's' : ''} • 
-                        <span className="font-medium text-green-600">${player.totalBuyIn.toFixed(2)}</span>
-                        {player.buyIns.length > 1 && (
-                          <span className="ml-2 text-black">
-                            ({player.buyIns.map(amount => `$${amount.toFixed(2)}`).join(' + ')})
-                          </span>
-                        )}
-                      </div>
+                      <div className="font-medium text-black">{player.name}</div>
+                      <div className="text-sm text-black">${player.totalBuyIn.toFixed(2)}</div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
                     <button
                       onClick={() => openCashoutModal(player.id)}
-                      className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
+                      className="text-sm text-black hover:text-gray-600"
                     >
                       Cash Out
                     </button>
-                    <button
-                      onClick={() => removePlayer(player.id)}
-                      className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                    >
-                      Remove
-                    </button>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-            
-            {/* Inactive Players */}
-            {inactivePlayers.map((player) => (
-              <div key={player.id} className="p-4 bg-gray-50 opacity-75">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center font-semibold text-gray-500">
-                      —
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-black">{player.name} <span className="text-sm font-normal text-black">(Out)</span></h4>
-                      <div className="text-sm text-black">
-                        {player.cashout ? (
-                          <span>Cashed out: <span className="font-medium text-green-600">${player.cashout.toFixed(2)}</span></span>
-                        ) : (
-                          <span>Final: <span className="font-medium text-black">${player.totalBuyIn.toFixed(2)}</span></span>
-                        )}
+            </div>
+          )}
+          
+          {/* Cashed Out Players */}
+          {cashedOutPlayers.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-black mb-3 uppercase tracking-wide">Finished</h3>
+              <div className="space-y-2">
+                {cashedOutPlayers.map((player) => {
+                  const net = player.cashout! - player.totalBuyIn;
+                  return (
+                    <div key={player.id} className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded">
+                      <div>
+                        <div className="font-medium text-black">{player.name}</div>
+                        <div className="text-sm text-black">
+                          ${player.totalBuyIn.toFixed(2)} → ${player.cashout!.toFixed(2)}
+                        </div>
+                      </div>
+                      <div className={`font-medium ${net >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {net >= 0 ? '+' : ''}${net.toFixed(2)}
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => togglePlayerStatus(player.id)}
-                      className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
-                    >
-                      Rejoin
-                    </button>
-                    <button
-                      onClick={() => removePlayer(player.id)}
-                      className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Cashout Model */}
+      {/* Cashout Modal */}
       {showCashoutModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-black mb-4">Cash Out Player</h3>
+          <div className="bg-white rounded p-6 w-80 mx-4">
+            <h3 className="font-medium text-black mb-4">
+              Cash out {players.find(p => p.id === cashoutPlayerId)?.name}
+            </h3>
             <div className="mb-4">
-              <p className="text-sm text-black mb-2">
-                Player: <span className="font-medium">
-                  {players.find(p => p.id === cashoutPlayerId)?.name}
-                </span>
-              </p>
-              <p className="text-sm text-black mb-4">
-                Available in pot: <span className="font-medium text-green-600">
-                  ${totalMoneyInPlay.toFixed(2)}
-                </span>
-              </p>
-              <label className="block text-sm font-medium text-black mb-2">
-                Cashout Amount:
-              </label>
+              <label className="block text-sm font-medium text-black mb-2">Amount</label>
               <input
                 type="number"
                 value={cashoutAmount}
                 onChange={(e) => setCashoutAmount(e.target.value)}
-                placeholder="$0.00"
+                placeholder="Amount"
                 min="0"
                 step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+                className="w-full px-3 py-2 text-black border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-500"
                 onKeyPress={(e) => e.key === 'Enter' && handleCashout()}
                 autoFocus
               />
+              <div className="text-xs text-black mt-1">
+                Available: ${totalMoneyInPlay.toFixed(2)}
+              </div>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex space-x-2">
               <button
                 onClick={closeCashoutModal}
-                className="flex-1 px-4 py-2 border border-gray-300 text-black rounded-md hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 border border-gray-300 text-black rounded text-sm hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCashout}
                 disabled={!cashoutAmount || parseFloat(cashoutAmount) <= 0}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 px-4 py-2 bg-black text-white rounded text-sm hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                Confirm Cashout
+                Confirm
               </button>
             </div>
           </div>
