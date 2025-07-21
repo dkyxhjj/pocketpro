@@ -69,18 +69,6 @@ export default function GameLedger() {
     setSelectedPlayerId('')
   }
 
-  const removePlayer = (playerId: string) => {
-    setPlayers(players.filter(player => player.id !== playerId))
-  }
-
-  const togglePlayerStatus = (playerId: string) => {
-    setPlayers(players.map(player => 
-      player.id === playerId 
-        ? { ...player, isActive: !player.isActive }
-        : player
-    ))
-  }
-
   const openCashoutModal = (playerId: string) => {
     setCashoutPlayerId(playerId)
     setShowCashoutModal(true)

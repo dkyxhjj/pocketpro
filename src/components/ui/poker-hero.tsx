@@ -55,7 +55,7 @@ export function PokerHero({
     user,
     username
 }: {
-    user?: any;
+    user?: { email?: string; [key: string]: unknown };
     username?: string;
 }) {
     const title = "PocketPro";
