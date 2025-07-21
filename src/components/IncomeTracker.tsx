@@ -205,7 +205,7 @@ export default function IncomeTracker() {
         {sessions.length === 0 ? (
           <div className="p-8 text-center text-black">
             <p className="text-lg mb-2">No sessions recorded yet</p>
-            <p>Click "Add Session" to start tracking your poker income!</p>
+            <p>Click &quot;Add Session&quot; to start tracking your poker income!</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
