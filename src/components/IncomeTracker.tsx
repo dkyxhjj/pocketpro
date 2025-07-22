@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { saveSessions, fetchSessions } from '@/lib/database'
+import { toast } from 'react-hot-toast'
 
 interface PokerSession {
   id: string
@@ -21,10 +23,24 @@ export default function IncomeTracker() {
 
   // Load sessions from localStorage on component mount
   useEffect(() => {
-    const savedSessions = localStorage.getItem('pokerSessions')
-    if (savedSessions) {
-      setSessions(JSON.parse(savedSessions))
-    }
+    // Try to load from Supabase first
+    (async () => {
+      try {
+        const cloudSessions = await fetchSessions()
+        if (cloudSessions && cloudSessions.length > 0) {
+          setSessions(cloudSessions)
+          toast.success('Loaded sessions from cloud')
+          return
+        }
+      } catch (e) {
+        // Ignore, fallback to localStorage
+      }
+      // Fallback: load from localStorage
+      const savedSessions = localStorage.getItem('pokerSessions')
+      if (savedSessions) {
+        setSessions(JSON.parse(savedSessions))
+      }
+    })()
   }, [])
 
   // Save sessions to localStorage whenever sessions change
@@ -119,12 +135,27 @@ export default function IncomeTracker() {
       {/* Add Session Button */}
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold text-black">Session History</h2>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-        >
-          {showAddForm ? 'Cancel' : 'Add Session'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              const ok = await saveSessions(sessions)
+              if (ok) {
+                toast.success('Sessions saved to Supabase!')
+              } else {
+                toast.error('Failed to save sessions. Are you logged in?')
+              }
+            }}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            Save to Cloud
+          </button>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            {showAddForm ? 'Cancel' : 'Add Session'}
+          </button>
+        </div>
       </div>
 
       {/* Add Session Form */}

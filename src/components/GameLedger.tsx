@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { saveGame, fetchGame, Player } from '@/lib/database'
+import { toast } from 'react-hot-toast'
 
 interface Player {
   id: string
@@ -20,6 +22,52 @@ export default function GameLedger() {
   const [showCashoutModal, setShowCashoutModal] = useState(false)
   const [cashoutPlayerId, setCashoutPlayerId] = useState('')
   const [cashoutAmount, setCashoutAmount] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [gameId, setGameId] = useState<string | null>(null)
+
+  // Load game data from Supabase on component mount
+  useEffect(() => {
+    const loadGame = async () => {
+      setLoading(true)
+      try {
+        const game = await fetchGame()
+        if (game) {
+          setPlayers(game.players || [])
+          setTotalMoneyInPlay(game.total_money_in_play || 0)
+          setGameId(game.id || null)
+        }
+      } catch (error) {
+        console.error('Error loading game:', error)
+        toast.error('Failed to load game data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadGame()
+  }, [])
+
+  // Save game data to Supabase whenever state changes
+  useEffect(() => {
+    // Don't save on initial load
+    if (loading) return
+
+    const saveGameData = async () => {
+      try {
+        const id = await saveGame(players, totalMoneyInPlay)
+        if (id && !gameId) {
+          setGameId(id)
+        }
+      } catch (error) {
+        console.error('Error saving game:', error)
+        // Don't show toast on every auto-save to avoid spamming the user
+      }
+    }
+
+    // Debounce save operations to avoid too many API calls
+    const timeoutId = setTimeout(saveGameData, 1000)
+    return () => clearTimeout(timeoutId)
+  }, [players, totalMoneyInPlay, gameId, loading])
 
   const addPlayer = () => {
     if (!newPlayerName.trim()) return
@@ -30,7 +78,7 @@ export default function GameLedger() {
     )
     
     if (nameExists) {
-      alert('A player with this name already exists!')
+      toast.error('A player with this name already exists!')
       return
     }
     
@@ -44,6 +92,7 @@ export default function GameLedger() {
     
     setPlayers([...players, newPlayer])
     setNewPlayerName('')
+    toast.success(`${newPlayer.name} added to the game`)
   }
 
   const addBuyIn = () => {
@@ -67,6 +116,7 @@ export default function GameLedger() {
     
     setBuyInAmount('')
     setSelectedPlayerId('')
+    toast.success(`Buy-in added successfully`)
   }
 
   const openCashoutModal = (playerId: string) => {
@@ -83,12 +133,12 @@ export default function GameLedger() {
   const handleCashout = () => {
     const amount = parseFloat(cashoutAmount)
     if (!amount || amount <= 0) {
-      alert('Please enter a valid cashout amount')
+      toast.error('Please enter a valid cashout amount')
       return
     }
 
     if (amount > totalMoneyInPlay) {
-      alert(`Not enough money in the pot! Available: $${totalMoneyInPlay.toFixed(2)}`)
+      toast.error(`Not enough money in the pot! Available: $${totalMoneyInPlay.toFixed(2)}`)
       return
     }
 
@@ -113,6 +163,7 @@ export default function GameLedger() {
     }))
 
     closeCashoutModal()
+    toast.success(`${cashingOutPlayer.name} cashed out successfully`)
   }
 
   const activePlayers = players.filter(player => player.isActive)
@@ -121,6 +172,14 @@ export default function GameLedger() {
   // Reset pot to 0 if no active players
   if (activePlayers.length === 0 && totalMoneyInPlay > 0) {
     setTotalMoneyInPlay(0)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+      </div>
+    )
   }
 
   return (
