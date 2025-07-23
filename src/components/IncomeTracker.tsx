@@ -32,7 +32,7 @@ export default function IncomeTracker() {
           toast.success('Loaded sessions from cloud')
           return
         }
-      } catch (e) {
+      } catch (_) {
         // Ignore, fallback to localStorage
       }
       // Fallback: load from localStorage

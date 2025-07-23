@@ -1,6 +1,7 @@
 import { getServerUser } from '@/utils/server-auth'
 import { redirect } from 'next/navigation'
 import IncomeTracker from '@/components/IncomeTracker'
+import Link from 'next/link'
 
 export default async function IncomePage() {
   const user = await getServerUser()  
@@ -21,6 +22,14 @@ export default async function IncomePage() {
           </p>
         </div>
         <IncomeTracker />
+        <div className="mt-8 flex justify-center space-x-4">
+          <Link
+            href="/dashboard"
+            className="block bg-blue-500 text-white hover:bg-blue-600 py-2 px-4 rounded-md text-center"
+          >
+            Save and Exit
+          </Link>
+        </div>
       </div>
     </div>
   )
