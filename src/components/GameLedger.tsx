@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { saveGame, fetchGame, Player } from '@/lib/database'
+import { saveGame, fetchGame } from '@/lib/database'
 import { toast } from 'react-hot-toast'
 
 interface Player {
