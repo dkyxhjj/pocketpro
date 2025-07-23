@@ -25,16 +25,13 @@ export default function IncomeTracker() {
   useEffect(() => {
     // Try to load from Supabase first
     (async () => {
-      try {
         const cloudSessions = await fetchSessions()
         if (cloudSessions && cloudSessions.length > 0) {
           setSessions(cloudSessions)
           toast.success('Loaded sessions from cloud')
           return
         }
-      } catch (_) {
-        // Ignore, fallback to localStorage
-      }
+
       // Fallback: load from localStorage
       const savedSessions = localStorage.getItem('pokerSessions')
       if (savedSessions) {
